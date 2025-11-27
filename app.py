@@ -568,4 +568,5 @@ if __name__ == "__main__":
     print(f"Groq API: {'✓' if GROQ_API_KEY else '✗'}")
     print(f"{'='*70}\n")
     
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
