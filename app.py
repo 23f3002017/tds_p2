@@ -412,25 +412,31 @@ solver = QuizSolver()
 
 
 async def solve_quiz_chain(initial_url, email, secret):
-    """Solve chain of quizzes within 3-minute time limit."""
+    """Solve chain of quizzes with 3-minute limit PER QUESTION."""
     try:
         await solver.initialize_browser()
 
         current_url = initial_url
-        start_time = datetime.now()
-        max_duration = 180
         attempt_count = 0
         tried_answers = set()
 
         while current_url:
-            elapsed = (datetime.now() - start_time).total_seconds()
-            if elapsed > max_duration:
-                print(f"\n⏰ TIME LIMIT EXCEEDED")
-                break
-
-            print(f"\n⏱️ ELAPSED: {elapsed:.0f}s / {max_duration}s")
+            # START fresh timer for EACH question
+            question_start_time = datetime.now()
+            max_duration = 180  # 3 minutes per question only
+            
+            print(f"\n⏱️ NEW QUESTION - 3 minute timer started")
 
             answer, error = await solver.solve_quiz(current_url)
+
+            question_elapsed = (datetime.now() - question_start_time).total_seconds()
+            
+            # CHECK TIME IMMEDIATELY after solve completes
+            if question_elapsed > max_duration:
+                print(f"\n⏰ TIME LIMIT EXCEEDED FOR THIS QUESTION ({question_elapsed:.0f}s)")
+                break
+
+            print(f"⏱️ Question time: {question_elapsed:.0f}s / {max_duration}s")
 
             if error or answer is None:
                 print(f"✗ FAILED: {error}")
@@ -457,16 +463,25 @@ async def solve_quiz_chain(initial_url, email, secret):
                     if not next_url:
                         print("🎉 QUIZ COMPLETED!")
                         break
+                    else:
+                        current_url = next_url
+                        continue
                 else:
                     print(f"❌ INCORRECT: {submit_response.get('reason')}")
                     attempt_count += 1
                     
-                    if attempt_count >= 2 or "sum" not in submit_response.get('reason', '').lower():
-                        if next_url and next_url != current_url:
-                            print(f"📍 Moving to next quiz")
-                        else:
-                            print(f"❌ Quiz failed, no next URL provided")
-                            break
+                    if next_url and next_url != current_url:
+                        print(f"📍 Moving to next question")
+                        current_url = next_url
+                        attempt_count = 0
+                        tried_answers.clear()
+                        continue
+                    elif attempt_count >= 2:
+                        print(f"❌ Failed after 2 attempts")
+                        break
+                    else:
+                        print(f"🔄 Retrying same question...")
+                        continue
             
             if next_url and next_url != current_url:
                 current_url = next_url
